@@ -75,6 +75,9 @@ ErrorCode processChange(ERP& erp, const Words& w) {
         if (cmd == "REGISTER") return erp.registerCourse(w.word[1], w.word[2], term);
         return erp.submitGrade(w.word[1], w.word[2], term, w.word[4]);
     }
+    if ((cmd == "SAVE" || cmd == "LOAD") && w.count == 2) {
+        return cmd == "SAVE" ? erp.save(w.word[1]) : erp.load(w.word[1]);
+    }
     if (cmd == "CONVERT") {
         if (w.count != 4 || !validIdentifier(w.word[1], 10) ||
             !validIdentifier(w.word[2], 10)) return E_PARSE;
@@ -86,6 +89,13 @@ ErrorCode processChange(ERP& erp, const Words& w) {
 ErrorCode processQuery(ERP& erp, const Words& w) {
     const std::string& cmd = w.word[0];
     if (w.count < 2 || !validIdentifier(w.word[1], 10)) return E_PARSE;
+    if (cmd == "TRANSCRIPT" && w.count == 2) {
+        std::string answer;
+        ErrorCode result = erp.transcript(w.word[1], &answer);
+        if (result != OK) return result;
+        std::cout << answer << '\n';
+        return OK;
+    }
     if (cmd == "GPA" && w.count == 2) {
         int h = 0;
         ErrorCode result = erp.gpaHundredths(w.word[1], &h);
@@ -127,7 +137,8 @@ ErrorCode processLine(ERP& erp, const std::string& line, int number, bool firstC
     const std::string& cmd = words.word[0];
     if (cmd == "PROGRAM" || cmd == "COURSE" || cmd == "STUDENT")
         return processCreate(erp, words, firstCommand ? 1 : number);
-    if (cmd == "REGISTER" || cmd == "GRADE" || cmd == "CONVERT")
+    if (cmd == "REGISTER" || cmd == "GRADE" || cmd == "CONVERT" ||
+        cmd == "SAVE" || cmd == "LOAD")
         return processChange(erp, words);
     return processQuery(erp, words);
 }

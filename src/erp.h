@@ -68,13 +68,17 @@ public:
                           int term, const std::string& symbol);
     ErrorCode gpaHundredths(const std::string& roll, int* result) const;
 
-    // Member B: implement these in advanced.cpp.
+    // Advanced academic queries.
     ErrorCode eligibility(const std::string& roll, const std::string& code,
                           int term, int* failedRule) const;
     ErrorCode convertThesis(const std::string& roll, const std::string& code,
                             const std::string& letter);
     ErrorCode averageGrade(const std::string& roll, std::string* result) const;
     ErrorCode graduation(const std::string& roll, std::string* result) const;
+    ErrorCode transcript(const std::string& roll, std::string* result) const;
+    ErrorCode save(const std::string& filename) const;
+    ErrorCode load(const std::string& filename);
+    void swapState(ERP& other);
 
     int findCourse(const std::string& code) const;
     int findStudent(const std::string& roll) const;
@@ -85,7 +89,7 @@ public:
     static int gradePoints(const std::string& grade);
     static bool validGrade(const std::string& grade);
 
-    // Read-only in A's functions; B uses these to implement advanced rules.
+    // Bounded arrays of academic records.
     Course courses[MAX_COURSES];
     Student students[MAX_STUDENTS];
     int courseCount;
