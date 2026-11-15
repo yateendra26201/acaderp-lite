@@ -1,4 +1,4 @@
-# AcadERP-Lite — two-person C++11 project
+# AcadERP-Lite — C++11 project
 
 **Status: Member A milestone implemented; NOT final submission.** `src/advanced.cpp` currently contains explicitly marked Member B placeholders. Do not submit this starter as the finished assignment.
 
