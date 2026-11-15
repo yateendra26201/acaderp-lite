@@ -119,14 +119,14 @@ ErrorCode processQuery(ERP& erp, const Words& w) {
     return E_PARSE;
 }
 
-ErrorCode processLine(ERP& erp, const std::string& line, int number) {
+ErrorCode processLine(ERP& erp, const std::string& line, int number, bool firstCommand) {
     if (line.size() > MAX_LINE_LENGTH) return E_PARSE;
     Words words;
     if (!splitWords(line, &words)) return E_PARSE;
     if (words.count == 0 || words.word[0][0] == '#') return OK;
     const std::string& cmd = words.word[0];
     if (cmd == "PROGRAM" || cmd == "COURSE" || cmd == "STUDENT")
-        return processCreate(erp, words, number);
+        return processCreate(erp, words, firstCommand ? 1 : number);
     if (cmd == "REGISTER" || cmd == "GRADE" || cmd == "CONVERT")
         return processChange(erp, words);
     return processQuery(erp, words);
@@ -136,9 +136,12 @@ int main() {
     ERP erp;
     std::string line;
     int lineNumber = 0;
+    bool firstCommand = true;
     while (std::getline(std::cin, line)) {
         ++lineNumber;
-        ErrorCode result = processLine(erp, line, lineNumber);
+        ErrorCode result = processLine(erp, line, lineNumber, firstCommand);
+        std::string::size_type pos = line.find_first_not_of(" \t\r");
+        if (pos != std::string::npos && line[pos] != '#') firstCommand = false;
         if (result != OK)
             std::cout << "ERROR " << lineNumber << ' ' << errorName(result) << '\n';
     }
