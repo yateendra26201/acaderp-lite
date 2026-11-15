@@ -1,82 +1,133 @@
-# AcadERP-Lite — Academic Records and Graduation Audit
+# AcadERP-Lite
+### Academic Records and Graduation Audit System
 
-C++11 command-line implementation for the OOPD Mini-ERP assignment.
+A command-line Mini-ERP application developed in **C++11** for the Object-Oriented Programming and Design (OOPD) project. The system maintains a course catalogue and student records, processes course registrations and grades, and evaluates academic progress against program requirements.
+
+## Team and contributions
+
+| Contributor | GitHub | Work completed |
+| --- | --- | --- |
+| **Syandan** | [@syandanreddy7](https://github.com/syandanreddy7) | Project setup and class definitions; student and course data management; input parsing and validation; registration and grade-recording foundations; exact GPA calculations; command processing; initial test cases and build setup. |
+| **Yateendra** | [@yateendra26201](https://github.com/yateendra26201) | Complete registration eligibility rules (E1–E6); thesis state transitions and conversion; average-grade calculation; graduation audit (R1–R5); additional test cases; integration updates and documentation. |
+
+We integrated the contributions through separate Git branches and a pull request. We also verified the integrated application using the automated test suite.
+
+## Features
+
+- **Program configuration:** optional academic requirements with assignment-defined defaults.
+- **Course catalogue:** regular, satisfactory/unsatisfactory (SU), and thesis courses, with credits, categories, and optional prerequisites.
+- **Student records:** bounded storage for up to 100 students and 50 courses.
+- **Registration:** prerequisite, repeat, duplicate registration, term-credit-limit, and thesis-credit eligibility checks.
+- **Grade processing:** valid grades by course type; prevention of unauthorized regrading; repeat attempts after failure.
+- **Thesis workflow:** progress grade (`S` or `X`) followed by letter-grade conversion when allowed.
+- **Academic queries:** GPA, average letter grade, graduation status, and course eligibility.
+- **Error recovery:** invalid commands return specified error codes; processing continues with the next input line.
 
 ## Build and run
 
+**Requirements:** a C++11-compatible `g++`, `make`, and a Unix-like shell.
+
 ```sh
 make
-./run_tests.sh
 ./acaderp < tests/sample.in
+./run_tests.sh
 ```
 
-Compile flags: `g++ -std=c++11 -Wall -Wextra -fno-exceptions`. The code uses only
-`<iostream>` and `<string>` from the allowed header set and does not use STL
-containers, exceptions, floating-point GPA calculation, or unchecked C-string copies.
+The Makefile builds the executable `acaderp` with the assignment's required flags:
 
-## Responsibilities
+```sh
+g++ -std=c++11 -Wall -Wextra -fno-exceptions src/main.cpp src/input.cpp src/core.cpp src/advanced.cpp -o acaderp
+```
 
-- Member A: `erp.h`, `core.cpp`, `input.cpp`, initial `main.cpp`, Makefile, initial tests.
-- Member B: `advanced.cpp` (eligibility, thesis conversion, average, graduation), extra
-  tests and integration update to `main.cpp` for the first noncomment `PROGRAM` line.
-- Both: regression testing, assumptions, output verification, and documentation.
+To rebuild from scratch:
 
-## Design
+```sh
+make clean
+make
+```
 
-`ERP` owns fixed arrays of up to 50 `Course` values and 100 `Student` objects.
-Each successful `addStudent` allocates `new Registration[MAX_REGS]` (40 per student)
-in `src/core.cpp`. `ERP::~ERP` deletes each allocation using `delete[]`, exactly once.
-The ERP and Student objects cannot be copied. Lookup uses bounded linear searches.
+## Input and output
 
-The command reader splits each line into a fixed 7-word buffer, validates maximum
-word/identifier sizes and integer syntax, then dispatches to functions returning
-`ErrorCode`. Failed commands do not alter stored academic records. Registration
-eligibility is tested in E1 through E6 order. Graduation lists all failed rules R1
-through R5, in order. GPA uses integer-only weighted numerator/denominator and
-half-up rounding (including failing grade F).
+The application reads **one command per line** from standard input and writes query results or errors to standard output. Successful data-changing commands produce no output. Blank lines and comment lines beginning with `#` are ignored but count toward line numbers.
 
-## Tests
+Supported commands:
 
-`tests/T01.in` ... `tests/T23.in`, paired with `.out` files. `./run_tests.sh` runs
-them all and checks byte-for-byte output. `tests/sample.in` and `sample.out`
-contain the PDF assignment's worked example; run as shown above. Main test runner
-covers Tnn pairs; the PDF sample can also be checked using:
+```text
+PROGRAM <total> <elective> <mingpa> <maxload> <thesiscredits>
+COURSE <code> <REGULAR|SU|THESIS> <credits> <CORE|ELECTIVE> <prereq>
+STUDENT <roll> <name>
+REGISTER <roll> <course> <term>
+GRADE <roll> <course> <term> <symbol>
+CONVERT <roll> <thesis> <letter>
+GPA <roll>
+AVG <roll>
+GRAD <roll>
+ELIGIBLE <roll> <course> <term>
+```
+
+For example, a GPA query returns `GPA <roll> <X.YY>`, and an invalid command returns `ERROR <line> <CODE>`. See `tests/sample.in` and `tests/sample.out` for the assignment's complete worked example.
+
+## Source layout
+
+```text
+acaderp-lite/
+├── Makefile            # C++11 build
+├── README.md           # Project documentation
+├── run_tests.sh        # Automated regression tests
+├── src/
+│   ├── erp.h           # Types, constants, and ERP interface
+│   ├── input.cpp       # Input validation and error names
+│   ├── core.cpp        # Records, registrations, grades, GPA
+│   ├── advanced.cpp    # Eligibility, thesis, AVG, graduation
+│   └── main.cpp        # Command reader and dispatcher
+└── tests/
+    ├── T01.in / T01.out
+    ├── ...
+    ├── T23.in / T23.out
+    └── sample.in / sample.out
+```
+
+## Implementation and safety
+
+We used classes, structs, fixed-size arrays, `std::string`, and bounded searches rather than STL containers. Operations that can fail report an `ErrorCode`, which the command processor checks. The implementation validates command structure, numeric syntax, identifier length, course credits, semester range, array capacity, and grade/course compatibility.
+
+**Memory ownership:** `ERP` stores up to 50 `Course` records and 100 `Student` records. When a student is added, `src/core.cpp` allocates `new Registration[MAX_REGS]` for that student's maximum 40 registrations. `ERP::~ERP` releases each allocation with `delete[]`. Copying the ERP and student objects is disallowed to prevent accidental duplicate ownership.
+
+**GPA correctness:** the credit-weighted grade-point numerator and denominator use integer arithmetic, with half-up rounding to hundredths; no floating-point arithmetic is used for GPA. Failed regular grades count in the denominator. Only each course's counting attempt contributes.
+
+**Error handling:** the parser processes commands line by line and reports errors without modifying academic records on failed operations. Eligibility checks occur in the specified E1–E6 order; the graduation query reports each failed R1–R5 rule in order.
+
+**Known bounds:** input lines are checked against a 512-character policy after `std::getline` reads them, so this is not a strict allocation bound for extremely long lines. `new[]` allocation failure is not recoverable under the specified no-exceptions build; successful allocations are released by the destructor.
+
+## Testing and verification
+
+We provide **23** paired test cases, `tests/T01.in`–`tests/T23.in`, with corresponding expected `.out` files. The regression script runs the program on each input and compares exact output.
+
+Coverage includes invalid grade symbols and types; missing registrations; repeated grading; thesis conversion and repeats; integer GPA rounding; average-grade boundaries; graduation rules; prerequisite and credit-load eligibility; catalogue/student limits; parsing errors; and recovery after errors.
+
+During integration, the project compiled with the required flags and produced **23/23 passing tests**.
+
+To verify the supplied worked example separately:
 
 ```sh
 ./acaderp < tests/sample.in | diff -u tests/sample.out -
 ```
 
-## Assumptions / interpretations
+## Assumptions and interpretations
 
-- The `PROGRAM` command must be the first **nonblank, noncomment** command. This
-  follows the PDF's worked example, which begins with a comment and then PROGRAM.
-- Grade symbols and course keywords are case-sensitive.
-- A course's counting attempt is the latest graded attempt by term number; when
-  two attempts share a term, the most recently added wins.
-- A thesis with progress grade S is still in progress: not passed, not in GPA,
-  and not eligible for another concurrent registration. Conversion applies to
-  the latest thesis registration; converted F allows a repeat.
-- A thesis converted to C or better satisfies graduation rule R4. At least one
-  thesis must qualify for R4; a D conversion earns credits but fails R4.
-- All registrations in a given term contribute to E5 load, even if later failed.
-  Exactly the maximum load is permitted.
-- Credit sums are accumulated in `int`: maximum 50 courses × 24 credits = 1200,
-  so these sums and grade-point sums cannot overflow under catalogue limits.
-- Configuration values are restricted to the range 0..100000; minimum GPA must
-  be formatted `X.YY` and belong to 0.00..10.00. This is a documented policy for
-  unspecified unusually large program configurations.
-- Missing optional `PROGRAM` uses the specified defaults.
-- Unknown course type/category yields E_BAD_COURSE; malformed numeric values,
-  terms, word counts, and identifiers yield E_PARSE.
-- Every line is counted for error locations, even comments and blank lines.
-- Input length is limited to 512 characters per line and 7 words per command.
-  `std::getline` stores the line before length validation; extremely long input
-  lines can therefore still allocate memory. There are no fixed C-string buffers
-  vulnerable to buffer overwrite, but this is not a strict memory-size cap.
-- The required `new[]` may terminate on allocation failure under `-fno-exceptions`;
-  no exception-based recovery is attempted, and allocation is capped at 100 × 40
-  registrations. All successful allocations are freed.
+The assignment allows reasonable interpretations of unspecified cases. We used the following:
 
-## Bonus
+1. `PROGRAM`, when present, must be the first **nonblank, noncomment** command. If omitted, defaults are total credits 160, elective credits 24, minimum GPA 5.00, maximum term load 24, and thesis prerequisite credits 100.
+2. Course type, category, and grade symbols are case-sensitive.
+3. A course's counting attempt is its latest graded attempt by term. Where attempts share a term, the most recently added is selected.
+4. A thesis progress grade of `S` leaves the thesis in progress: it does not yet earn credits or enter GPA, and blocks another concurrent registration. An `X` or a final `F` permits a later attempt.
+5. Conversion acts on the latest thesis registration. A thesis converted to `C` or better qualifies for graduation rule R4; conversion to `D` earns credits but does not satisfy R4.
+6. All course registrations in a term count toward its load, including attempts that later fail. A load equal to the maximum is allowed.
+7. Program configuration values are limited to 0–100000; minimum GPA must be written `X.YY` and fall between 0.00 and 10.00.
+8. Unknown course type or category returns `E_BAD_COURSE`; malformed numbers, terms, command lengths, and identifiers return `E_PARSE`.
+9. Blank/comment lines still count toward error line numbers. Input is limited by policy to 512 characters per line and at most seven command words.
+10. Under the catalogue limits (50 courses, 24 credits per course), credit totals and weighted grade-point sums fit safely in an `int`.
 
-Optional `TRANSCRIPT`, `SAVE`, and `LOAD` commands are not implemented.
+## Scope
+
+The required assignment commands are implemented. Optional bonus commands (`TRANSCRIPT`, `SAVE`, and `LOAD`) are **not** implemented.
