@@ -1,67 +1,82 @@
-# AcadERP-Lite — C++11 project
+# AcadERP-Lite — Academic Records and Graduation Audit
 
-**Status: Member A milestone implemented; NOT final submission.** `src/advanced.cpp` currently contains explicitly marked Member B placeholders. Do not submit this starter as the finished assignment.
+C++11 command-line implementation for the OOPD Mini-ERP assignment.
 
-## Build and test
+## Build and run
 
 ```sh
 make
 ./run_tests.sh
-# or: make test
-./acaderp < tests/T08.in
-make clean
+./acaderp < tests/sample.in
 ```
 
-Exact flags: `g++ -std=c++11 -Wall -Wextra -fno-exceptions`.
+Compile flags: `g++ -std=c++11 -Wall -Wextra -fno-exceptions`. The code uses only
+`<iostream>` and `<string>` from the allowed header set and does not use STL
+containers, exceptions, floating-point GPA calculation, or unchecked C-string copies.
 
-## Files and ownership
+## Responsibilities
 
-| File | Owner | Responsibility |
-|---|---|---|
-| `src/erp.h` | A (shared interface) | Enums, fixed limits, model definitions and method signatures |
-| `src/core.cpp` | A | Student/course storage, regular/SU grades, thesis progress grade, GPA |
-| `src/input.cpp` | A | Strict numeric parsing and error-code names |
-| `src/main.cpp` | A | Command loop, word counts, syntax checks, exact response printing |
-| `src/advanced.cpp` | B | Replace placeholders with E1–E6, CONVERT, AVG, GRAD |
-| `tests/` | Both | A adds initial tests; B adds and verifies full required table |
-| `README.md`, `run_tests.sh`, `Makefile` | A starts, B finalizes | Build, documentation and regression runner |
+- Member A: `erp.h`, `core.cpp`, `input.cpp`, initial `main.cpp`, Makefile, initial tests.
+- Member B: `advanced.cpp` (eligibility, thesis conversion, average, graduation), extra
+  tests and integration update to `main.cpp` for the first noncomment `PROGRAM` line.
+- Both: regression testing, assumptions, output verification, and documentation.
 
-## Data layout and memory
+## Design
 
-`ERP` contains arrays of up to 50 courses and 100 students. Each successfully added student gets a dynamically allocated `Registration[MAX_REGS]` array via `new[]` in `ERP::addStudent`. `ERP::~ERP` calls `delete[]` once for each such allocation. The ERP and students cannot be copied. Every insertion checks the array limit before writing. Course references are array indices, not raw dangling pointers.
+`ERP` owns fixed arrays of up to 50 `Course` values and 100 `Student` objects.
+Each successful `addStudent` allocates `new Registration[MAX_REGS]` (40 per student)
+in `src/core.cpp`. `ERP::~ERP` deletes each allocation using `delete[]`, exactly once.
+The ERP and Student objects cannot be copied. Lookup uses bounded linear searches.
 
-Student and course lookup uses straightforward loops. GPA counts only the latest graded attempt per course, skips SU and unconverted theses, and uses integer-only half-up rounding.
+The command reader splits each line into a fixed 7-word buffer, validates maximum
+word/identifier sizes and integer syntax, then dispatches to functions returning
+`ErrorCode`. Failed commands do not alter stored academic records. Registration
+eligibility is tested in E1 through E6 order. Graduation lists all failed rules R1
+through R5, in order. GPA uses integer-only weighted numerator/denominator and
+half-up rounding (including failing grade F).
 
-## Assumptions (review together before final delivery)
+## Tests
 
-- `PROGRAM` is accepted only on physical input line 1, including comment/blank lines in the numbering.
-- In this starter, an unknown course type/category is `E_BAD_COURSE`; malformed numeric fields are `E_PARSE`.
-- GPA thresholds are accepted only in fixed two-decimal notation between `0.00` and `10.00`.
-- Program credit thresholds and load limits are non-negative integers up to 100000, to keep all calculations within `int` range.
-- Identifiers may contain non-whitespace characters; their lengths are limited as required.
-- The command length is limited to 512 characters; excess is `E_PARSE`. `std::getline` still constructs a line before checking its size; a streaming length cap would require a different input-reading strategy.
-- A thesis with progress grade `S` is not yet passed, and makes no GPA contribution until converted.
-- `GRADE` rejects all grade changes once a registration has any grade, including thesis progress grades.
-- For different attempts, the latest graded attempt is selected by the largest term number.
-- **Still to decide with B:** whether a student can have multiple course registrations in the same term, how concurrent different-term attempts behave, and any ambiguity about thesis conversion selection. B must document the final choices.
+`tests/T01.in` ... `tests/T23.in`, paired with `.out` files. `./run_tests.sh` runs
+them all and checks byte-for-byte output. `tests/sample.in` and `sample.out`
+contain the PDF assignment's worked example; run as shown above. Main test runner
+covers Tnn pairs; the PDF sample can also be checked using:
 
-## Safety/design notes
+```sh
+./acaderp < tests/sample.in | diff -u tests/sample.out -
+```
 
-- Uses `std::string`, not C buffers, `strcpy` or unsafe character-array copying.
-- Numeric parsing validates each character and checks the limit **before** multiplication, preventing integer overflow and silent truncation.
-- Number of words, identifier sizes, terms, course credits and array indices are checked.
-- Fallible operations return `ErrorCode`; callers check them.
-- New state is written only after checks, so a failed user command doesn't partially modify an existing record.
-- The specification requires `std::getline`, so processing one genuinely enormous line could still allocate significant memory before the line-length rejection. Do not claim this starter has a hard heap-memory cap.
-- In the course-restricted header set, `new[]` without the forbidden `<new>`/exception facilities cannot report allocation failure gracefully. At the fixed maximum of 100 × 40 registrations, memory usage is small but allocation failure is not recoverable here.
+## Assumptions / interpretations
 
-## Remaining Member B checklist
+- The `PROGRAM` command must be the first **nonblank, noncomment** command. This
+  follows the PDF's worked example, which begins with a comment and then PROGRAM.
+- Grade symbols and course keywords are case-sensitive.
+- A course's counting attempt is the latest graded attempt by term number; when
+  two attempts share a term, the most recently added wins.
+- A thesis with progress grade S is still in progress: not passed, not in GPA,
+  and not eligible for another concurrent registration. Conversion applies to
+  the latest thesis registration; converted F allows a repeat.
+- A thesis converted to C or better satisfies graduation rule R4. At least one
+  thesis must qualify for R4; a D conversion earns credits but fails R4.
+- All registrations in a given term contribute to E5 load, even if later failed.
+  Exactly the maximum load is permitted.
+- Credit sums are accumulated in `int`: maximum 50 courses × 24 credits = 1200,
+  so these sums and grade-point sums cannot overflow under catalogue limits.
+- Configuration values are restricted to the range 0..100000; minimum GPA must
+  be formatted `X.YY` and belong to 0.00..10.00. This is a documented policy for
+  unspecified unusually large program configurations.
+- Missing optional `PROGRAM` uses the specified defaults.
+- Unknown course type/category yields E_BAD_COURSE; malformed numeric values,
+  terms, word counts, and identifiers yield E_PARSE.
+- Every line is counted for error locations, even comments and blank lines.
+- Input length is limited to 512 characters per line and 7 words per command.
+  `std::getline` stores the line before length validation; extremely long input
+  lines can therefore still allocate memory. There are no fixed C-string buffers
+  vulnerable to buffer overwrite, but this is not a strict memory-size cap.
+- The required `new[]` may terminate on allocation failure under `-fno-exceptions`;
+  no exception-based recovery is attempted, and allocation is capped at 100 × 40
+  registrations. All successful allocations are freed.
 
-1. Implement eligibility checks **E1 to E6 in order**, returning the corresponding `E_...` code for REGISTER and E-number for ELIGIBLE.
-2. Implement thesis `CONVERT`: only `IN_PROGRESS` may transition to `FINAL`; support conversion to F, repeated failed theses and correct errors.
-3. Implement `AVG` using the rounded integer GPA bands.
-4. Implement `GRAD` with all failing rules R1–R5 in required order and exact comma-separated format.
-5. Add the remaining test cases from assignment T05–T23 plus its full worked sample and invalid-input boundary tests; ensure `make test` passes.
-6. Review edge cases with A, document final assumptions and submit the archive after integration.
+## Bonus
 
-The optional TRANSCRIPT/SAVE/LOAD bonus commands are not implemented in this starter.
+Optional `TRANSCRIPT`, `SAVE`, and `LOAD` commands are not implemented.
