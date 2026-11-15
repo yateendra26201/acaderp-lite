@@ -1,0 +1,7 @@
+STUDENT R1 Tara
+LOAD tests/bad_save.erp
+TRANSCRIPT R1
+LOAD does_not_exist.erp
+TRANSCRIPT R1
+SAVE ../escape.erp
+TRANSCRIPT R1

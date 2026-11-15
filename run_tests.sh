@@ -14,7 +14,7 @@ for input in tests/T??.in; do
     else
         echo "FAIL $(basename "$input")"
     fi
-    rm -f "$actual"
+    rm -f "$actual" bonus_roundtrip.erp bonus_roundtrip.erp.tmp
 done
 echo "$passed/$total tests passed"
 [ "$passed" -eq "$total" ]
