@@ -1,0 +1,4 @@
+/acaderp
+*.o
+*.out.tmp
+.DS_Store
